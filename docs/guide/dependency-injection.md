@@ -8,7 +8,7 @@ Handlers can request dependencies simply by adding parameters:
 
 ```zig
 fn hello(arena: std.mem.Allocator) ![]const u8 {
-    return std.fmt.allocPrint(arena, "Hello {}", .{std.time.timestamp()});
+    return std.fmt.allocPrint(arena, "Hello {s}", .{"world"});
 }
 ```
 
@@ -62,7 +62,7 @@ fn hello(res: *tk.Response) !void {
 Provide your own global dependencies via a custom injector:
 
 ```zig
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     var db = try sqlite.open("my.db");
     var cache = try Cache.init();
 
@@ -71,7 +71,7 @@ pub fn main() !void {
         .ref(&cache),
     }, null);
 
-    var server = try tk.Server.init(allocator, routes, .{
+    var server = try tk.Server.init(init.io, init.gpa, routes, .{
         .injector = &inj,
     });
 
@@ -105,8 +105,8 @@ const WebModule = struct {
     routes: []const tk.Route = &.{ /* ... */ },
 };
 
-pub fn main() !void {
-    try tk.app.run(tk.Server.start, &.{
+pub fn main(init: std.process.Init) !void {
+    try tk.app.run(init, tk.Server.start, &.{
         SharedModule,
         WebModule,
     });
@@ -149,7 +149,7 @@ Initialization strategies:
 
 When a dependency is registered with `.auto`, the container resolves it in this order:
 
-1. **`T.provider`** — if the type declares `pub const provider: How`, it takes precedence
+1. **`T.provider`** — if the type declares `pub const provider: Provider`, it takes precedence
 2. **`T.init()`** — falls back to the `init()` method if present
 3. **`autowire`** — injects all struct fields by type
 
@@ -160,7 +160,7 @@ const MyService = struct {
     name: []const u8 = "default",
 
     // Use a custom factory instead of autowiring
-    pub const provider: tk.How = .factory(createService);
+    pub const provider: tk.Provider = .factory(createService);
 
     fn createService() @This() {
         return .{ .name = "custom" };

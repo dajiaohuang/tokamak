@@ -7,7 +7,7 @@ The `tk.Server` is the core component that handles HTTP requests and manages the
 Creating a server is straightforward:
 
 ```zig
-var server = try tk.Server.init(allocator, routes, .{
+var server = try tk.Server.init(init.io, init.gpa, routes, .{
     .listen = .{ .port = 8080 }
 });
 try server.start();
@@ -18,7 +18,7 @@ try server.start();
 The server accepts several configuration options:
 
 ```zig
-var server = try tk.Server.init(allocator, routes, .{
+var server = try tk.Server.init(init.io, init.gpa, routes, .{
     .listen = .{
         .port = 8080,
         .hostname = "127.0.0.1",
@@ -32,11 +32,11 @@ var server = try tk.Server.init(allocator, routes, .{
 You can provide global dependencies to your handlers:
 
 ```zig
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     var db = try sqlite.open("my.db");
     var inj = tk.Injector.init(&.{ .ref(&db) }, null);
 
-    var server = try tk.Server.init(allocator, routes, .{
+    var server = try tk.Server.init(init.io, init.gpa, routes, .{
         .injector = &inj,
         .listen = .{ .port = 8080 }
     });

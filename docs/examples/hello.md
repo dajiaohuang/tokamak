@@ -23,7 +23,7 @@ The handler function simply returns a string:
 - Basic server setup
 - Simple routing
 - Handler functions
-- Manual memory management with GeneralPurposeAllocator
+- Process-provided allocator and I/O via `std.process.Init`
 
 ## Running
 

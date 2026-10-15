@@ -47,12 +47,8 @@ fn hello() ![]const u8 {
     return "Hello";
 }
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.deinit();
-
-    var server = try tk.Server.init(allocator, routes, .{
+pub fn main(init: std.process.Init) !void {
+    var server = try tk.Server.init(init.io, init.gpa, routes, .{
         .listen = .{ .port = 8080 }
     });
     defer server.deinit();

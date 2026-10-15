@@ -36,12 +36,13 @@ Middleware handlers receive `*tk.Context` and must call `ctx.next()`:
 
 ```zig
 fn timing(ctx: *tk.Context) anyerror!void {
-    const start = std.time.milliTimestamp();
+    const io = try ctx.injector.get(std.Io);
+    const start = std.Io.Clock.awake.now(io);
 
     try ctx.next();
 
-    const duration = std.time.milliTimestamp() - start;
-    log.info("Request took {}ms", .{duration});
+    const duration = start.durationTo(std.Io.Clock.awake.now(io));
+    log.info("Request took {d}ms", .{duration.toMilliseconds()});
 }
 ```
 
@@ -58,7 +59,8 @@ fn auth(ctx: *tk.Context) anyerror!void {
     const user = try jwt.parse(token);
 
     // Make user available to downstream handlers
-    return ctx.nextScoped(&.{ user });
+    var inj = tk.Injector.init(&.{ .ref(&user) }, ctx.injector);
+    return ctx.nextScoped(&inj);
 }
 
 // Downstream handler can now inject User
@@ -81,7 +83,8 @@ fn requireAuth(children: []const tk.Route) tk.Route {
                 return error.Unauthorized;
 
             const user = try validateToken(token);
-            return ctx.nextScoped(&.{ user });
+            var inj = tk.Injector.init(&.{ .ref(&user) }, ctx.injector);
+            return ctx.nextScoped(&inj);
         }
     };
 
@@ -125,7 +128,7 @@ fn errorHandler(ctx: *tk.Context) anyerror!void {
             else => 500,
         };
 
-        try ctx.send(.{ .error = @errorName(err) });
+        try ctx.send(.{ .@"error" = @errorName(err) });
     };
 }
 ```
@@ -136,14 +139,14 @@ Stack multiple middleware together:
 
 ```zig
 const routes: []const tk.Route = &.{
-    errorHandler(
-        logger(
-            cors(
+    .{ .handler = errorHandler, .children = &.{
+        logger(&.{
+            .{ .handler = cors, .children = &.{
                 requireAuth(&.{
                     .get("/api/users", getUsers),
-                })
-            )
-        )
-    ),
+                }),
+            } },
+        }),
+    } },
 };
 ```

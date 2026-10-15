@@ -95,7 +95,7 @@ server or the request/response types.
 
 ```zig
 fn hello(arena: std.mem.Allocator) ![]const u8 {
-    return std.fmt.allocPrint(arena, "Hello {}", .{std.time.timestamp()});
+    return std.fmt.allocPrint(arena, "Hello {s}", .{"world"});
 }
 ```
 
@@ -188,7 +188,8 @@ fn auth(ctx: *tk.Context) anyerror!void {
     const token = try jwt.parse(ctx.req.header("authorization") orelse "");
     const user = db.find(User, token.id) catch null;
 
-    return ctx.nextScoped(&.{ user });
+    var inj = tk.Injector.init(&.{ .ref(&user) }, ctx.injector);
+    return ctx.nextScoped(&inj);
 }
 ```
 
@@ -307,10 +308,10 @@ pub const mime_types = tk.mime_types ++ .{
 
 ## Configuration
 
-For a simple configuration, you can use the `tk.config.read(T, opts)` function,
-which will read the configuration from a JSON file. The `opts` parameter is
-optional and can be used to specify the path to the config file and parsing
-options.
+For a simple configuration, you can use the `tk.config.read(T, io, gpa, opts)` function,
+which will read the configuration from a JSON file. Pass `.{}` for the default
+path and parsing options, or specify them in `opts`. The result owns its parsed
+data and must be deinitialized.
 
 ```zig
 const Cfg = struct {
@@ -318,10 +319,12 @@ const Cfg = struct {
     bar: []const u8,
 };
 
-const cfg = try tk.config.read(Cfg, .{ .path = "config.json" });
+const cfg = try tk.config.read(Cfg, init.io, init.gpa, .{ .path = "config.json" });
+defer cfg.deinit();
+// Access the parsed configuration through cfg.value.
 ```
 
-There's also an experimental `tk.config.write(T, opts)` function that will write
+There's also an experimental `tk.config.write(T, io, config, opts)` function that will write
 the configuration back to the file.
 
 ## Process Monitoring
