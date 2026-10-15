@@ -34,9 +34,20 @@ pub fn write(comptime T: type, io: std.Io, config: T, options: WriteOptions) !vo
     const file = try cwd.createFile(io, options.path, .{});
     defer file.close(io);
 
-    try std.json.stringify(
-        config,
-        options.stringify,
-        file.writer(io, &.{}),
-    );
+    var writer = file.writer(io, &.{});
+    try std.json.Stringify.value(config, options.stringify, &writer.interface);
+    try writer.interface.flush();
+}
+
+test "write and read configuration" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const Config = struct { name: []const u8, count: u32 };
+    try write(Config, std.testing.io, .{ .name = "tokamak", .count = 7 }, .{ .cwd = tmp.dir });
+    const parsed = try read(Config, std.testing.io, std.testing.allocator, .{ .cwd = tmp.dir });
+    defer parsed.deinit();
+
+    try std.testing.expectEqualStrings("tokamak", parsed.value.name);
+    try std.testing.expectEqual(@as(u32, 7), parsed.value.count);
 }
